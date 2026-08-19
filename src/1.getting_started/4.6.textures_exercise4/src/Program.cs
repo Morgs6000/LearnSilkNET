@@ -38,6 +38,7 @@ public class Program
         options.Size = new Vector2D<int>(SCR_WIDTH, SCR_HEIGHT);
         options.Title = "Learn Silk.NET";
         options.IsVisible = false;
+        options.VSync = false;
 
         _window = Window.Create(options);
         
@@ -297,7 +298,7 @@ public class Program
 
         if (_keyboard.IsKeyPressed(Key.Up))
         {
-            _mixValue += 0.01f; // ajuste este valor conforme necessário (pode ficar lento ou rápido demais, dependendo do hardware do sistema)
+            _mixValue += 0.001f; // ajuste este valor conforme necessário (pode ficar lento ou rápido demais, dependendo do hardware do sistema)
 
             if (_mixValue >= 1.0f)
             {
@@ -306,7 +307,7 @@ public class Program
         }
         if (_keyboard.IsKeyPressed(Key.Down))
         {
-            _mixValue -= 0.01f; // ajuste este valor conforme necessário (pode ficar lento ou rápido demais, dependendo do hardware do sistema)
+            _mixValue -= 0.001f; // ajuste este valor conforme necessário (pode ficar lento ou rápido demais, dependendo do hardware do sistema)
 
             if (_mixValue <= 0.0f)
             {
