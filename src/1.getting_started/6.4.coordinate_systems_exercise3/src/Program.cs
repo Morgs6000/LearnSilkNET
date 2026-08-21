@@ -12,12 +12,13 @@ public class Program
 {
     private static IWindow _window = null!;
     private static GL _gl = null!;
+    private static Glfw _glfw = null!;
 
-    private static IKeyboard _keyboard = null!;
+    private static IKeyboard _primaryKeyboard = null!;
 
     // configurações
-    private const int SCR_WIDTH = 800;
-    private const int SCR_HEIGHT = 600;
+    private const uint SCR_WIDTH = 800;
+    private const uint SCR_HEIGHT = 600;
 
     private static Shader _ourShader = null!;
 
@@ -47,9 +48,10 @@ public class Program
         // --------------------------------------------------
         WindowOptions options = WindowOptions.Default;
 
-        options.Size = new Vector2D<int>(SCR_WIDTH, SCR_HEIGHT);
+        options.Size = new Vector2D<int>((int)SCR_WIDTH, (int)SCR_HEIGHT);
         options.Title = "Learn Silk.NET";
         options.IsVisible = false;
+        options.VSync = false;
 
         _window = Window.Create(options);
         
@@ -81,9 +83,16 @@ public class Program
         _window.IsVisible = true;
 
         IInputContext input = _window.CreateInput();
-        _keyboard = input.Keyboards[0];
+
+        _primaryKeyboard = input.Keyboards.FirstOrDefault()!;
+
+        if (_primaryKeyboard != null)
+        {
+            _primaryKeyboard.KeyDown += OnKeyDown;
+        }
 
         _gl = _window.CreateOpenGL();
+        _glfw = Glfw.GetApi();
 
         // configurar estado global do OpenGL
         // --------------------------------------------------
@@ -322,7 +331,7 @@ public class Program
 
             if (i % 3 == 0) // a cada 3 iterações (incluindo a primeira), definimos o ângulo usando a função de tempo da GLFW.
             {
-                angle = (float)Glfw.GetApi().GetTime() * 25.0f;
+                angle = (float)_glfw.GetTime() * 25.0f;
             }
 
             model *= Matrix4x4.CreateFromAxisAngle(Vector3.Normalize(new Vector3(1.0f, 0.3f, 0.5f)), MathHelper.DegreesToRadians(angle));
@@ -343,14 +352,19 @@ public class Program
         _gl.DeleteBuffers(1, ref _vertexBufferObject);
     }
 
+    private static void OnKeyDown(IKeyboard keyboard, Key key, int keyCode)
+    {
+        if (key == Key.Escape)
+        {
+            _window.Close();
+        }
+    }
+
     // processar toda a entrada: consultar a GLFW para saber se teclas relevantes foram pressionadas ou liberadas neste quadro e reagir de acordo
     // --------------------------------------------------
     private static void ProcessInput()
     {
-        if (_keyboard.IsKeyPressed(Key.Escape))
-        {
-            _window.Close();
-        }
+        
     }
 
     // glfw: sempre que o tamanho da janela é alterado (pelo SO ou por redimensionamento do usuário), esta função de callback é executada

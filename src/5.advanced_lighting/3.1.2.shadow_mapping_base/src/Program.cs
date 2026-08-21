@@ -12,13 +12,14 @@ public class Program
 {
     private static IWindow _window = null!;
     private static GL _gl = null!;
+    private static Glfw _glfw = null!;
 
-    private static IKeyboard _keyboard = null!;
-    private static IMouse _mouse = null!;
+    private static IKeyboard _primaryKeyboard = null!;
+    private static IMouse _primaryMouse = null!;
 
     // configurações
-    private const int SCR_WIDTH = 800;
-    private const int SCR_HEIGHT = 600;
+    private const uint SCR_WIDTH = 800;
+    private const uint SCR_HEIGHT = 600;
 
     // câmera
     private static Camera _camera = new Camera(new Vector3(0.0f, 0.0f, 3.0f));
@@ -33,6 +34,7 @@ public class Program
     // malhas
     private static uint _planeVAO;
 
+    private static Shader _shader = null!;
     private static Shader _simpleDepthShader = null!;
     private static Shader _debugDepthQuad = null!;
 
@@ -54,9 +56,10 @@ public class Program
         // --------------------------------------------------
         WindowOptions options = WindowOptions.Default;
 
-        options.Size = new Vector2D<int>(SCR_WIDTH, SCR_HEIGHT);
+        options.Size = new Vector2D<int>((int)SCR_WIDTH, (int)SCR_HEIGHT);
         options.Title = "Learn Silk.NET";
         options.IsVisible = false;
+        options.VSync = false;
 
         _window = Window.Create(options);
         
@@ -89,16 +92,24 @@ public class Program
 
         IInputContext input = _window.CreateInput();
 
-        _keyboard = input.Keyboards[0];
-        _mouse = input.Mice[0];
+        _primaryKeyboard = input.Keyboards.FirstOrDefault()!;
+        _primaryMouse = input.Mice.FirstOrDefault()!;
 
-        _mouse.MouseMove += MouseCallback;
-        _mouse.Scroll += ScrollCallback;
+        if (_primaryKeyboard != null)
+        {
+            _primaryKeyboard.KeyDown += OnKeyDown;
+        }
+        if (_primaryMouse != null)
+        {
+            _primaryMouse.MouseMove += MouseCallback;
+            _primaryMouse.Scroll += ScrollCallback;
+        }
 
         _gl = _window.CreateOpenGL();
+        _glfw = Glfw.GetApi();
 
         // instruir o GLFW a capturar o mouse
-        _mouse.Cursor.CursorMode = CursorMode.Raw;
+        _primaryMouse!.Cursor.CursorMode = CursorMode.Raw;
 
         // configurar estado global do OpenGL
         // --------------------------------------------------
@@ -106,6 +117,7 @@ public class Program
 
         // construir e compilar nosso programa de shader
         // --------------------------------------------------
+        _shader = new Shader(_gl, "src/shadow_mapping.vs", "src/shadow_mapping.fs");
         _simpleDepthShader = new Shader(_gl, "src/shadow_mapping_depth.vs", "src/shadow_mapping_depth.fs");
         _debugDepthQuad = new Shader(_gl, "src/debug_quad.vs", "src/debug_quad_depth.fs");
 
@@ -113,7 +125,7 @@ public class Program
         // --------------------------------------------------
         float[] planeVertices =
         {
-            // posições            // normais         // coordenadas de textura
+            // posições              // normais          // coordenadas de textura
             -25.0f, -0.5f, -25.0f,   0.0f, 1.0f, 0.0f,    0.0f,  0.0f,
              25.0f, -0.5f, -25.0f,   0.0f, 1.0f, 0.0f,   25.0f,  0.0f,
              25.0f, -0.5f,  25.0f,   0.0f, 1.0f, 0.0f,   25.0f, 25.0f,
@@ -181,7 +193,7 @@ public class Program
 
         // anexa a textura de profundidade como buffer de profundidade do FBO
         _gl.BindFramebuffer(FramebufferTarget.Framebuffer, _depthMapFBO);
-        _gl.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, _depthMap, 0);
+        _gl.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, _depthMap, 0);
 
         _gl.DrawBuffer(DrawBufferMode.None);
         _gl.ReadBuffer(ReadBufferMode.None);
@@ -190,6 +202,10 @@ public class Program
 
         // configuração do shader
         // --------------------------------------------------
+        _shader.Use();
+        _shader.SetInt("diffuseTexture", 0);
+        _shader.SetInt("shadowMap", 1);
+
         _debugDepthQuad.Use();
         _debugDepthQuad.SetInt("depthMap", 0);
     }
@@ -203,7 +219,7 @@ public class Program
     {
         // lógica de tempo por quadro
         // --------------------------------------------------
-        float currentFrame = (float)Glfw.GetApi().GetTime();
+        float currentFrame = (float)_glfw.GetTime();
         _deltaTime = currentFrame - _lastFrame;
         _lastFrame = currentFrame;
 
@@ -241,7 +257,7 @@ public class Program
             cameraTarget:   new Vector3(0.0f), 
             cameraUpVector: new Vector3(0.0f, 1.0f, 0.0f)
         );
-        lightSpaceMatrix = lightProjection * lightView;
+        lightSpaceMatrix = lightView * lightProjection;
 
         // renderizar a cena do ponto de vista da luz
         _simpleDepthShader.Use();
@@ -259,14 +275,44 @@ public class Program
         _gl.Viewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
+        // 2. renderizar a cena normalmente usando o mapa de profundidade/sombra gerado
+        // --------------------------------------------------
+        _shader.Use();
+
+        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(
+            fieldOfView:       MathHelper.DegreesToRadians(_camera.Zoom), 
+            aspectRatio:       (float)SCR_WIDTH / (float)SCR_HEIGHT, 
+            nearPlaneDistance: 0.1f, 
+            farPlaneDistance:  100.0f
+        );
+        Matrix4x4 view = _camera.GetViewMatrix();
+
+        _shader.SetMat4("projection", projection);
+        _shader.SetMat4("view", view);
+
+        // definir uniformes claros
+        _shader.SetVec3("viewPos", _camera.Position);
+        _shader.SetVec3("lightPos", _lightPos);
+        _shader.SetMat4("lightSpaceMatrix", lightSpaceMatrix);
+
+        _gl.ActiveTexture(TextureUnit.Texture0);
+        _gl.BindTexture(TextureTarget.Texture2D, _woodTexture);
+
+        _gl.ActiveTexture(TextureUnit.Texture1);
+        _gl.BindTexture(TextureTarget.Texture2D, _depthMap);
+
+        RenderScene(_shader);
+
         // renderiza o mapa de profundidade em um quad para depuração visual
         // --------------------------------------------------
         _debugDepthQuad.Use();
         _debugDepthQuad.SetFloat("near_plane", near_plane);
         _debugDepthQuad.SetFloat("far_plane", far_plane);
+
         _gl.ActiveTexture(TextureUnit.Texture0);
         _gl.BindTexture(TextureTarget.Texture2D, _depthMap);
-        RenderQuad();
+
+        // RenderQuad();
     }
 
     private static void OnClosing()
@@ -466,28 +512,31 @@ public class Program
         _gl.BindVertexArray(0);
     }
 
+    private static void OnKeyDown(IKeyboard keyboard, Key key, int keyCode)
+    {
+        if (key == Key.Escape)
+        {
+            _window.Close();
+        }
+    }
+
     // processar toda a entrada: consultar a GLFW para saber se teclas relevantes foram pressionadas ou liberadas neste quadro e reagir de acordo
     // --------------------------------------------------
     private static void ProcessInput()
     {
-        if (_keyboard.IsKeyPressed(Key.Escape))
-        {
-            _window.Close();
-        }
-
-        if (_keyboard.IsKeyPressed(Key.W))
+        if (_primaryKeyboard.IsKeyPressed(Key.W))
         {
             _camera.ProcessKeyboard(Camera_Movement.FORWARD, _deltaTime);
         }
-        if (_keyboard.IsKeyPressed(Key.S))
+        if (_primaryKeyboard.IsKeyPressed(Key.S))
         {
             _camera.ProcessKeyboard(Camera_Movement.BACKWARD, _deltaTime);
         }
-        if (_keyboard.IsKeyPressed(Key.A))
+        if (_primaryKeyboard.IsKeyPressed(Key.A))
         {
             _camera.ProcessKeyboard(Camera_Movement.LEFT, _deltaTime);
         }
-        if (_keyboard.IsKeyPressed(Key.D))
+        if (_primaryKeyboard.IsKeyPressed(Key.D))
         {
             _camera.ProcessKeyboard(Camera_Movement.RIGHT, _deltaTime);
         }

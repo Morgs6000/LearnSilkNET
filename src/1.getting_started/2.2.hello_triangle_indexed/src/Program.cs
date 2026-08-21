@@ -10,11 +10,9 @@ public class Program
     private static IWindow _window = null!;
     private static GL _gl = null!;
 
-    private static IKeyboard _keyboard = null!;
-
     // configurações
-    private const int SCR_WIDTH = 800;
-    private const int SCR_HEIGHT = 600;
+    private const uint SCR_WIDTH = 800;
+    private const uint SCR_HEIGHT = 600;
 
     private const string _vertexShaderSource =
     @"
@@ -50,9 +48,10 @@ public class Program
         // --------------------------------------------------
         WindowOptions options = WindowOptions.Default;
 
-        options.Size = new Vector2D<int>(SCR_WIDTH, SCR_HEIGHT);
+        options.Size = new Vector2D<int>((int)SCR_WIDTH, (int)SCR_HEIGHT);
         options.Title = "Learn Silk.NET";
         options.IsVisible = false;
+        options.VSync = false;
 
         _window = Window.Create(options);
         
@@ -84,7 +83,11 @@ public class Program
         _window.IsVisible = true;
 
         IInputContext input = _window.CreateInput();
-        _keyboard = input.Keyboards[0];
+
+        for (int i = 0; i < input.Keyboards.Count; i++)
+        {
+            input.Keyboards[i].KeyDown += OnKeyDown;
+        }
 
         _gl = _window.CreateOpenGL();
 
@@ -244,7 +247,12 @@ public class Program
     // --------------------------------------------------
     private static void ProcessInput()
     {
-        if (_keyboard.IsKeyPressed(Key.Escape))
+        
+    }
+
+    private static void OnKeyDown(IKeyboard keyboard, Key key, int keyCode)
+    {
+        if (key == Key.Escape)
         {
             _window.Close();
         }

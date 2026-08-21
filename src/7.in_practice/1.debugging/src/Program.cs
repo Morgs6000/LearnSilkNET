@@ -14,13 +14,14 @@ public class Program
 {
     private static IWindow _window = null!;
     private static GL _gl = null!;
+    private static Glfw _glfw = null!;
 
-    private static IKeyboard _keyboard = null!;
-    private static IMouse _mouse = null!;
+    private static IKeyboard _primaryKeyboard = null!;
+    private static IMouse _primaryMouse = null!;
 
     // configurações
-    private const int SCR_WIDTH = 800;
-    private const int SCR_HEIGHT = 600;
+    private const uint SCR_WIDTH = 800;
+    private const uint SCR_HEIGHT = 600;
 
     private static ErrorCode CheckError([CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
     {
@@ -169,9 +170,10 @@ public class Program
         // --------------------------------------------------
         WindowOptions options = WindowOptions.Default;
 
-        options.Size = new Vector2D<int>(SCR_WIDTH, SCR_HEIGHT);
+        options.Size = new Vector2D<int>((int)SCR_WIDTH, (int)SCR_HEIGHT);
         options.Title = "Learn Silk.NET";
         options.IsVisible = false;
+        options.VSync = false;
         options.API = WindowOptions.Default.API with
         {
             Flags = ContextFlags.Debug
@@ -207,13 +209,20 @@ public class Program
         _window.IsVisible = true;
 
         IInputContext input = _window.CreateInput();
-        _keyboard = input.Keyboards[0];
-        _mouse = input.Mice[0];
+
+        _primaryKeyboard = input.Keyboards.FirstOrDefault()!;
+        _primaryMouse = input.Mice.FirstOrDefault()!;
+
+        if (_primaryKeyboard != null)
+        {
+            _primaryKeyboard.KeyDown += OnKeyDown;
+        }
 
         _gl = _window.CreateOpenGL();
+        _glfw = Glfw.GetApi();
 
         // instruir o GLFW a capturar o mouse
-        _mouse.Cursor.CursorMode = CursorMode.Raw;
+        _primaryMouse!.Cursor.CursorMode = CursorMode.Raw;
 
         // habilita o contexto de depuração do OpenGL se o contexto permitir um contexto de depuração
         int flags;
@@ -472,14 +481,19 @@ public class Program
         _gl.BindVertexArray(0);
     }
 
+    private static void OnKeyDown(IKeyboard keyboard, Key key, int keyCode)
+    {
+        if (key == Key.Escape)
+        {
+            _window.Close();
+        }
+    }
+
     // processar toda a entrada: consultar a GLFW para saber se teclas relevantes foram pressionadas ou liberadas neste quadro e reagir de acordo
     // --------------------------------------------------
     private static void ProcessInput()
     {
-        if (_keyboard.IsKeyPressed(Key.Escape))
-        {
-            _window.Close();
-        }
+        
     }
 
     // glfw: sempre que o tamanho da janela é alterado (pelo SO ou por redimensionamento do usuário), esta função de callback é executada

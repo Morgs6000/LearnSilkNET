@@ -12,13 +12,11 @@ public class Program
 {
     private static IWindow _window = null!;
     private static GL _gl = null!;
-
-    private static IKeyboard _keyboard = null!;
-    private static IMouse _mouse = null!;
+    private static Glfw _glfw = null!;
 
     // configurações
-    private const int SCR_WIDTH = 800;
-    private const int SCR_HEIGHT = 600;
+    private const uint SCR_WIDTH = 800;
+    private const uint SCR_HEIGHT = 600;
 
     private static Shader _shader = null!;
 
@@ -32,9 +30,10 @@ public class Program
         // --------------------------------------------------
         WindowOptions options = WindowOptions.Default;
 
-        options.Size = new Vector2D<int>(SCR_WIDTH, SCR_HEIGHT);
+        options.Size = new Vector2D<int>((int)SCR_WIDTH, (int)SCR_HEIGHT);
         options.Title = "Learn Silk.NET";
         options.IsVisible = false;
+        options.VSync = false;
 
         _window = Window.Create(options);
         
@@ -66,10 +65,9 @@ public class Program
         _window.IsVisible = true;
 
         IInputContext input = _window.CreateInput();
-        _keyboard = input.Keyboards[0];
-        _mouse = input.Mice[0];
 
         _gl = _window.CreateOpenGL();
+        _glfw = Glfw.GetApi();
 
         // configurar estado global do OpenGL
         // --------------------------------------------------

@@ -19,6 +19,7 @@ public class Program
 {
     private static IWindow _window = null!;
     private static GL _gl = null!;
+    private static Glfw _glfw = null!;
 
     // A largura da tela
     private const uint SCREEN_WIDTH = 800;
@@ -40,6 +41,7 @@ public class Program
         options.Size = new Vector2D<int>((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
         options.Title = "Breakout";
         options.IsVisible = false;
+        options.VSync = false;
 
         _window = Window.Create(options);
 
@@ -69,6 +71,7 @@ public class Program
         }        
 
         _gl = _window.CreateOpenGL();
+        _glfw = Glfw.GetApi();
 
         // Configuração do OpenGL
         // --------------------------------------------------
@@ -91,7 +94,7 @@ public class Program
     {
         // calcular o delta de tempo
         // --------------------------------------------------
-        float currentFrame = (float)Glfw.GetApi().GetTime();
+        float currentFrame = (float)_glfw.GetTime();
         _deltaTime = currentFrame - _lastFrame;
         _lastFrame = currentFrame;
 

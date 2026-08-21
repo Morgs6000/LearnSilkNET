@@ -12,13 +12,14 @@ public class Program
 {
     private static IWindow _window = null!;
     private static GL _gl = null!;
+    private static Glfw _glfw = null!;
 
-    private static IKeyboard _keyboard = null!;
-    private static IMouse _mouse = null!;
+    private static IKeyboard _primaryKeyboard = null!;
+    private static IMouse _primaryMouse = null!;
 
     // configurações
-    private const int SCR_WIDTH = 800;
-    private const int SCR_HEIGHT = 600;
+    private const uint SCR_WIDTH = 800;
+    private const uint SCR_HEIGHT = 600;
 
     // câmera
     private static Camera _camera = new Camera(new Vector3(0.0f, 0.0f, 3.0f));
@@ -49,9 +50,10 @@ public class Program
         // --------------------------------------------------
         WindowOptions options = WindowOptions.Default;
 
-        options.Size = new Vector2D<int>(SCR_WIDTH, SCR_HEIGHT);
+        options.Size = new Vector2D<int>((int)SCR_WIDTH, (int)SCR_HEIGHT);
         options.Title = "Learn Silk.NET";
         options.IsVisible = false;
+        options.VSync = false;
 
         _window = Window.Create(options);
         
@@ -83,16 +85,25 @@ public class Program
         _window.IsVisible = true;
 
         IInputContext input = _window.CreateInput();
-        _keyboard = input.Keyboards[0];
-        _mouse = input.Mice[0];
 
-        _mouse.MouseMove += MouseCallback;
-        _mouse.Scroll += ScrollCallback;
+        _primaryKeyboard = input.Keyboards.FirstOrDefault()!;
+        _primaryMouse = input.Mice.FirstOrDefault()!;
+
+        if (_primaryKeyboard != null)
+        {
+            _primaryKeyboard.KeyDown += OnKeyDown;
+        }
+        if (_primaryMouse != null)
+        {
+            _primaryMouse.MouseMove += MouseCallback;
+            _primaryMouse.Scroll += ScrollCallback;
+        }
 
         _gl = _window.CreateOpenGL();
+        _glfw = Glfw.GetApi();
 
         // instruir o GLFW a capturar o mouse
-        _mouse.Cursor.CursorMode = CursorMode.Raw;
+        _primaryMouse!.Cursor.CursorMode = CursorMode.Raw;
 
         // configurar estado global do OpenGL
         // --------------------------------------------------
@@ -276,7 +287,7 @@ public class Program
     {
         // lógica de tempo por quadro
         // --------------------------------------------------
-        float currentFrame = (float)Glfw.GetApi().GetTime();
+        float currentFrame = (float)_glfw.GetTime();
         _deltaTime = currentFrame - _lastFrame;
         _lastFrame = currentFrame;
 
@@ -320,7 +331,7 @@ public class Program
         // 2. agora, transfira o(s) buffer(s) com multisampling para o buffer de cor normal do FBO intermediário. A imagem é armazenada em screenTexture.
         _gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _framebuffer);
         _gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _intermediateFBO);
-        _gl.BlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
+        _gl.BlitFramebuffer(0, 0, (int)SCR_WIDTH, (int)SCR_HEIGHT, 0, 0, (int)SCR_WIDTH, (int)SCR_HEIGHT, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
 
         // 3. agora, renderize o quadrilátero usando os elementos visuais da cena como sua textura
         _gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
@@ -341,28 +352,31 @@ public class Program
         
     }
 
+    private static void OnKeyDown(IKeyboard keyboard, Key key, int keyCode)
+    {
+        if (key == Key.Escape)
+        {
+            _window.Close();
+        }
+    }
+
     // processar toda a entrada: consultar a GLFW para saber se teclas relevantes foram pressionadas ou liberadas neste quadro e reagir de acordo
     // --------------------------------------------------
     private static void ProcessInput()
     {
-        if (_keyboard.IsKeyPressed(Key.Escape))
-        {
-            _window.Close();
-        }
-
-        if (_keyboard.IsKeyPressed(Key.W))
+        if (_primaryKeyboard.IsKeyPressed(Key.W))
         {
             _camera.ProcessKeyboard(Camera_Movement.FORWARD, _deltaTime);
         }
-        if (_keyboard.IsKeyPressed(Key.S))
+        if (_primaryKeyboard.IsKeyPressed(Key.S))
         {
             _camera.ProcessKeyboard(Camera_Movement.BACKWARD, _deltaTime);
         }
-        if (_keyboard.IsKeyPressed(Key.A))
+        if (_primaryKeyboard.IsKeyPressed(Key.A))
         {
             _camera.ProcessKeyboard(Camera_Movement.LEFT, _deltaTime);
         }
-        if (_keyboard.IsKeyPressed(Key.D))
+        if (_primaryKeyboard.IsKeyPressed(Key.D))
         {
             _camera.ProcessKeyboard(Camera_Movement.RIGHT, _deltaTime);
         }

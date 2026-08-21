@@ -12,12 +12,13 @@ public class Program
 {
     private static IWindow _window = null!;
     private static GL _gl = null!;
+    private static Glfw _glfw = null!;
 
-    private static IKeyboard _keyboard = null!;
+    private static IKeyboard _primaryKeyboard = null!;
 
     // configurações
-    private const int SCR_WIDTH = 800;
-    private const int SCR_HEIGHT = 600;
+    private const uint SCR_WIDTH = 800;
+    private const uint SCR_HEIGHT = 600;
 
     // câmera
     private static Vector3 _cameraPos   = new Vector3(0.0f, 0.0f,  3.0f);
@@ -56,9 +57,10 @@ public class Program
         // --------------------------------------------------
         WindowOptions options = WindowOptions.Default;
 
-        options.Size = new Vector2D<int>(SCR_WIDTH, SCR_HEIGHT);
+        options.Size = new Vector2D<int>((int)SCR_WIDTH, (int)SCR_HEIGHT);
         options.Title = "Learn Silk.NET";
         options.IsVisible = false;
+        options.VSync = false;
 
         _window = Window.Create(options);
         
@@ -90,9 +92,16 @@ public class Program
         _window.IsVisible = true;
 
         IInputContext input = _window.CreateInput();
-        _keyboard = input.Keyboards[0];
+
+        _primaryKeyboard = input.Keyboards.FirstOrDefault()!;
+
+        if (_primaryKeyboard != null)
+        {
+            _primaryKeyboard.KeyDown += OnKeyDown;
+        }
 
         _gl = _window.CreateOpenGL();
+        _glfw = Glfw.GetApi();
 
         // configurar estado global do OpenGL
         // --------------------------------------------------
@@ -291,9 +300,9 @@ public class Program
     {
         // lógica de tempo por quadro
         // --------------------------------------------------
-        float currentTime = (float)Glfw.GetApi().GetTime();
-        _deltaTime = currentTime - _lastFrame;
-        _lastFrame = currentTime;
+        float currentFrame = (float)_glfw.GetTime();
+        _deltaTime = currentFrame - _lastFrame;
+        _lastFrame = currentFrame;
 
         // input
         // --------------------------------------------------
@@ -354,30 +363,33 @@ public class Program
         _gl.DeleteBuffers(1, ref _vertexBufferObject);
     }
 
+    private static void OnKeyDown(IKeyboard keyboard, Key key, int keyCode)
+    {
+        if (key == Key.Escape)
+        {
+            _window.Close();
+        }
+    }
+
     // processar toda a entrada: consultar a GLFW para saber se teclas relevantes foram pressionadas ou liberadas neste quadro e reagir de acordo
     // --------------------------------------------------
     private static void ProcessInput()
     {
-        if (_keyboard.IsKeyPressed(Key.Escape))
-        {
-            _window.Close();
-        }
-
         float cameraSpeed = 2.5f * _deltaTime;
 
-        if (_keyboard.IsKeyPressed(Key.W))
+        if (_primaryKeyboard.IsKeyPressed(Key.W))
         {
             _cameraPos += cameraSpeed * _cameraFront;
         }
-        if (_keyboard.IsKeyPressed(Key.S))
+        if (_primaryKeyboard.IsKeyPressed(Key.S))
         {
             _cameraPos -= cameraSpeed * _cameraFront;
         }
-        if (_keyboard.IsKeyPressed(Key.A))
+        if (_primaryKeyboard.IsKeyPressed(Key.A))
         {
             _cameraPos -= cameraSpeed * Vector3.Normalize(Vector3.Cross(_cameraFront, _cameraUp));
         }
-        if (_keyboard.IsKeyPressed(Key.D))
+        if (_primaryKeyboard.IsKeyPressed(Key.D))
         {
             _cameraPos += cameraSpeed * Vector3.Normalize(Vector3.Cross(_cameraFront, _cameraUp));
         }
